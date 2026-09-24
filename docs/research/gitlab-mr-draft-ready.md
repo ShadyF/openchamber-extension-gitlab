@@ -1,0 +1,21 @@
+# GitLab merge request draft and ready: API research
+
+Research for [issue #13](https://github.com/ShadyF/openchamber-extension-gitlab/issues/13). This is a description of documented behavior and open validation questions, not a GitLab-version compatibility promise.
+
+## Documented behavior
+
+- Create an MR with `POST /projects/:id/merge_requests`, providing the required source branch, target branch, and title. To make it a draft, start its title with `[Draft]`, `Draft:`, or `(Draft)`. For an existing MR, update its title using `PUT /projects/:id/merge_requests/:merge_request_iid`; add a recognized prefix to mark it draft, or remove the prefix to mark it ready. GitLab documents these prefixes and title editing as ways to change draft state. A source branch must exist on GitLab to create the MR; changing an existing MR's title does not require a local Git checkout. [MR API: create and update](https://docs.gitlab.com/api/merge_requests/); [draft MRs](https://docs.gitlab.com/user/project/merge_requests/drafts/).
+- The MR API returns `draft` as a boolean state. It is not listed as a writable create/update parameter: do not send `draft: true` as though it were a supported state-change API. Fetch the MR after changing its title and verify `draft` has the requested value. [MR API](https://docs.gitlab.com/api/merge_requests/).
+- GitLab documents `/draft` and `/ready` quick actions for MRs, and documents `POST /projects/:id/merge_requests/:merge_request_iid/notes` for creating an MR note. Those are distinct documented features, not a specific promise that a command-only Notes API request will work on every target installation. [Quick actions](https://docs.gitlab.com/user/project/quick_actions/); [Notes API](https://docs.gitlab.com/api/notes/).
+- Creating and updating merge requests requires appropriate project permissions (Developer can create and update MR details, subject to project restrictions); an access token with `api` scope authorizes API access but does not override project permissions. Account for invalid token, forbidden access, missing project/MR, and title-validation failures instead of assuming a successful state transition. [Project MR permissions](https://docs.gitlab.com/user/permissions/#project-merge-requests); [token scopes](https://docs.gitlab.com/user/profile/personal_access_tokens/#personal-access-token-scopes); [MR API](https://docs.gitlab.com/api/merge_requests/).
+
+## Source-backed inference, not an API guarantee
+
+GitLab's [MR model at a fixed source revision](https://gitlab.com/gitlab-org/gitlab/-/blob/32875a335d71fe10a0291955019eb28c1789bba6/app/models/merge_request.rb#L958-972) derives draft status from a title regex and strips draft prefixes from titles. This supports using title changes as a desired-state operation, but does not guarantee every title update succeeds: permissions and validation still apply. In particular, do not depend on `WIP:` as a current documented draft prefix. The quick-action documentation describes commands in comments and descriptions, but processing of a command-only note or an API-updated description should be treated as an inference until exercised on the target installation.
+
+## D5: validation still needed
+
+- On selected test environments (examples only, **not** a minimum or latest supported GitLab release), create a remote source branch, POST a prefixed-title MR, then GET the MR and check `draft: true`.
+- PUT a prefixed title on an existing ready MR, verify `draft: true`; PUT the unprefixed title, verify `draft: false`. Repeat the desired state to check idempotence and preserve meaningful user title text when removing prefixes.
+- If considering quick actions, POST command-only `/draft` and `/ready` notes and separately test description updates. GET the MR after each action; capture whether the note persists, the API response, and behavior when already in the requested state. Do not use this path as a guaranteed method until verified.
+- Test insufficient project permissions, invalid or insufficient-scope tokens, missing MRs, invalid titles, and branch-not-found on creation. Record actual status codes and response bodies rather than asserting a universal error shape or a version gate.
