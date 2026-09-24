@@ -21,6 +21,10 @@ devcontainer exec --workspace-folder "$WORKSPACE" bun run build
 
 The build creates the tracked classic IIFE at `panel/main.js` and validates the OpenChamber manifest and package entry. Do not ship `node_modules` or the development-only TypeScript sources.
 
+## Compatibility verification
+
+The maintainer reports manually passing all issue #16 flow checks in OpenChamber web v2.0.0 and desktop v2.0.0. This is a maintainer-reported release gate, not independent automated verification, and it does not establish behavior for every deployment variant. The manifest's `>=2.0.0` engine floor reflects that report.
+
 ## Configure a self-managed GitLab host
 
 `https://gitlab.invalid` is a safe placeholder, not a usable GitLab address. Before installation, replace `openchamber.contributes.integration.token.apiOrigin` in `package.json` with that instance's bare HTTPS origin (for example, `https://gitlab.example.net`). Changing only this manifest value does not require rebuilding `panel/main.js`; if distributing a ZIP, recreate the ZIP with the edited manifest. Do not include a path, query, token, or credentials in the origin. Create a GitLab personal access token (PAT) with the `api` scope and enter it only through the protected credential field in OpenChamber Settings → Integrations. Do not put a token in `package.json`, the panel, or these instructions. The panel relies on the native integration settings for host information rather than displaying a second, potentially stale host value.

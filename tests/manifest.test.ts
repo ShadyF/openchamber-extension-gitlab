@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'bun:test';
 import { parseManifest } from '@openchamber/sdk/schemas';
-import { isSafeBareHttpsOrigin, requiresUnverifiedOpenChamberTwo } from '../scripts/validate-package.js';
+import { isSafeBareHttpsOrigin, supportsVerifiedOpenChamberTwo } from '../scripts/validate-package.js';
 import { GITLAB_VARIANT_ID } from '../src/gitlab.js';
 
 // Keep package validity tied to the official SDK parser and the integration security contract.
@@ -40,7 +40,7 @@ describe('OpenChamber package manifest', () => {
       scheme: 'bearer',
       account: { path: '/api/v4/user', name: 'username' },
     });
-    expect(packageJson.openchamber.engines).toBeUndefined();
+    expect(packageJson.openchamber.engines).toEqual({ openchamber: '>=2.0.0' });
   });
 
   // Ensure the extension delegates authorization to the host instead of reading a token or calling fetch.
@@ -73,11 +73,12 @@ describe('OpenChamber package manifest', () => {
     }
   });
 
-  // Keep package metadata from claiming unverified OpenChamber 2.0 support.
-  it('rejects only engine floors at or above unverified OpenChamber 2.0', () => {
-    expect(requiresUnverifiedOpenChamberTwo(undefined)).toBe(false);
-    expect(requiresUnverifiedOpenChamberTwo('>=1.24.0')).toBe(false);
-    expect(requiresUnverifiedOpenChamberTwo('2.0.0')).toBe(true);
-    expect(requiresUnverifiedOpenChamberTwo('>=2.0.0')).toBe(true);
+  // Require SDK-parsed engine floors to include the manually verified OpenChamber v2.0.0 floor.
+  it('accepts only OpenChamber engine floors at or above v2.0.0', () => {
+    expect(supportsVerifiedOpenChamberTwo(undefined)).toBe(false);
+    expect(supportsVerifiedOpenChamberTwo('>=1.24.0')).toBe(false);
+    expect(supportsVerifiedOpenChamberTwo('2.0.0')).toBe(true);
+    expect(supportsVerifiedOpenChamberTwo('>=2.0.0')).toBe(true);
+    expect(supportsVerifiedOpenChamberTwo('>=2.1.0')).toBe(true);
   });
 });

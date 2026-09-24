@@ -23,11 +23,11 @@ export function isSafeBareHttpsOrigin(value: unknown): value is string {
   }
 }
 
-// Reject engine floors that would claim unverified OpenChamber 2.0 web and desktop support.
-export function requiresUnverifiedOpenChamberTwo(engine: string | undefined): boolean {
+// Require an SDK-valid minimum that includes the maintainer-verified OpenChamber 2.0 floor.
+export function supportsVerifiedOpenChamberTwo(engine: string | undefined): boolean {
   if (!engine) return false;
   const minimum = openChamberEngineMinimum(engine);
-  return minimum === null || compareOpenChamberVersions(minimum, '2.0.0') >= 0;
+  return minimum !== null && compareOpenChamberVersions(minimum, '2.0.0') >= 0;
 }
 
 // Validate the manifest and files OpenChamber loads before the package is shipped.
@@ -48,7 +48,7 @@ export async function validatePackage(): Promise<void> {
     throw new Error('Panel bundle must be a classic IIFE without module imports or exports.');
   }
 
-  // Allow the safe placeholder or an actual bare HTTPS origin, but reject unsafe host paths and engine claims.
+  // Allow the safe placeholder or an actual bare HTTPS origin and require the verified host floor.
   const openChamber = (packageDocument as {
     openchamber?: {
       contributes?: { integration?: { token?: { apiOrigin?: string; scheme?: string } } };
@@ -59,8 +59,8 @@ export async function validatePackage(): Promise<void> {
   if (!isSafeBareHttpsOrigin(token?.apiOrigin) || token.scheme !== 'bearer') {
     throw new Error('The GitLab integration must use a bare HTTPS origin and bearer token scheme.');
   }
-  if (requiresUnverifiedOpenChamberTwo(openChamber?.engines?.openchamber)) {
-    throw new Error('Do not require OpenChamber 2.0.0 or newer until web and desktop support are verified.');
+  if (!supportsVerifiedOpenChamberTwo(openChamber?.engines?.openchamber)) {
+    throw new Error('Declare an OpenChamber engine minimum of 2.0.0 or newer.');
   }
 
   console.log('OpenChamber manifest and panel package files are valid.');

@@ -18,6 +18,7 @@
   },
   "openchamber": {
     "apiVersion": 1,
+    "engines": { "openchamber": ">=2.0.0" },
     "contributes": {
       "panel": {
         "id": "gitlab-self-managed",
