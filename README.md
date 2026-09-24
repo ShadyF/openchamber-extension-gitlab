@@ -23,12 +23,12 @@ The build creates the tracked classic IIFE at `panel/main.js` and validates the 
 
 ## Configure a self-managed GitLab host
 
-`https://gitlab.invalid` is a safe placeholder, not a usable GitLab address. Before packaging for a self-managed instance, replace `openchamber.contributes.integration.token.apiOrigin` in `package.json` with that instance's bare HTTPS origin (for example, `https://gitlab.example.net`), then rebuild. Do not include a path, query, token, or credentials in the origin. Create a GitLab personal access token (PAT) with the `api` scope and enter it only through the protected credential field in OpenChamber Settings → Integrations. Do not put a token in `package.json`, the panel, or these instructions. The panel relies on the native integration settings for host information rather than displaying a second, potentially stale host value.
+`https://gitlab.invalid` is a safe placeholder, not a usable GitLab address. Before installation, replace `openchamber.contributes.integration.token.apiOrigin` in `package.json` with that instance's bare HTTPS origin (for example, `https://gitlab.example.net`). Changing only this manifest value does not require rebuilding `panel/main.js`; if distributing a ZIP, recreate the ZIP with the edited manifest. Do not include a path, query, token, or credentials in the origin. Create a GitLab personal access token (PAT) with the `api` scope and enter it only through the protected credential field in OpenChamber Settings → Integrations. Do not put a token in `package.json`, the panel, or these instructions. The panel relies on the native integration settings for host information rather than displaying a second, potentially stale host value.
 
 The configured API origin is immutable after installation; editing it in place is unsupported. To replace the GitLab host, use this order:
 
 1. Remove the installed GitLab extension in Settings → Extensions.
-2. Configure the bare HTTPS origin in `package.json` and rebuild the package.
+2. Configure the bare HTTPS origin in `package.json` and, if using a ZIP, package the edited files again.
 3. Reinstall the updated extension.
 4. Reconnect GitLab in Settings → Integrations with a token for the new host.
 5. Reopen the panel and reselect the GitLab project association. Removing the extension clears its isolated native storage, including prior mappings.
