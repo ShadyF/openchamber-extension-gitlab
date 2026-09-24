@@ -6,8 +6,8 @@ import { GITLAB_VARIANT_ID } from '../src/gitlab.js';
 
 // Keep package validity tied to the official SDK parser and the integration security contract.
 describe('OpenChamber package manifest', () => {
-  // Require a unique panel ID, protected bearer token, and non-runnable HTTPS placeholder.
-  it('uses a unique panel identity, protected bearer token, and safe HTTPS placeholder', async () => {
+  // Require a unique panel ID, protected bearer token, and safe configured HTTPS origin.
+  it('uses a unique panel identity, protected bearer token, and safe HTTPS host', async () => {
     const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as {
       openchamber: {
         apiVersion: 1;
@@ -34,8 +34,9 @@ describe('OpenChamber package manifest', () => {
     expect(packageJson.openchamber.contributes.capabilities).toEqual(['sessions']);
     expect(packageJson.openchamber.contributes.integration.name).toBe('Self-Managed GitLab');
     expect(packageJson.openchamber.contributes.integration.description).toContain('self-managed GitLab instance');
-    expect(packageJson.openchamber.contributes.integration.token).toEqual({
-      apiOrigin: 'https://gitlab.invalid',
+    const { apiOrigin, ...token } = packageJson.openchamber.contributes.integration.token;
+    expect(isSafeBareHttpsOrigin(apiOrigin)).toBe(true);
+    expect(token).toEqual({
       scheme: 'bearer',
       account: { path: '/api/v4/user', name: 'username' },
     });

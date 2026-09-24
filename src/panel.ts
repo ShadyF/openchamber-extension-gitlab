@@ -22,33 +22,30 @@ export interface PanelActions {
 }
 
 export function createPanel(root: HTMLElement, actions: PanelActions): { render(state: PanelState): void; destroy(): void } {
-  // Keep the search field mounted across updates so typing and focus are not interrupted.
+  // Mount a compact settings-like layout once so host updates do not interrupt the search field.
   root.innerHTML = `
     <div class="panel">
-      <header class="masthead">
-        <div class="brand"><span class="brand-mark" aria-hidden="true">◆</span><span>GitLab <span class="brand-light">/ OpenChamber</span></span></div>
-        <span class="eyebrow">Project association</span>
+      <header class="panel-header">
+        <h1>GitLab project</h1>
+        <p>Choose the GitLab project for this local repository.</p>
       </header>
-      <section class="intro" aria-labelledby="panel-heading">
-        <div class="step">01 <span aria-hidden="true">/</span> CONNECT</div>
-        <h1 id="panel-heading">Choose a GitLab project<span class="heading-accent">.</span></h1>
-        <p>Link this local repository to its GitLab project for issues and merge requests.</p>
+      <section class="context" aria-label="Connection and local repository">
+        <div class="context-line"><span>Account</span><strong id="account-value"></strong></div>
+        <div class="context-line"><span>Local repository</span><strong id="repository-value"></strong></div>
+        <div class="context-line"><span>Directory</span><span id="directory-value" class="directory-value"></span></div>
+        <p class="settings-note">Manage the connection and configured host in <strong>Settings → Integrations</strong>.</p>
       </section>
-      <section class="context-card" aria-label="Current context">
-        <div class="context-row"><span class="context-label">Connected account</span><strong id="account-value" class="context-value"></strong></div>
-        <div class="context-row"><span class="context-label">Local repository</span><strong id="repository-value" class="context-value"></strong></div>
-        <div class="context-row"><span class="context-label">Directory</span><span id="directory-value" class="context-value path-value"></span></div>
+      <section class="association" id="association-wrap" aria-label="Current project association" hidden>
+        <div class="section-label" id="association-label">Current association</div>
+        <div class="association-line"><strong id="association-value"></strong><span id="remove-slot"></span></div>
       </section>
-      <p class="connection-help">Connect an account or view the configured GitLab host in <strong>Settings → Integrations</strong>.</p>
-      <section class="selection" aria-labelledby="project-heading">
-        <div class="section-title"><span class="step">02 <span aria-hidden="true">/</span> SELECT</span><h2 id="project-heading">GitLab project</h2></div>
-        <div id="association-wrap" class="association-wrap" hidden><span class="small-label" id="association-label">Current association</span><div class="association-row"><strong id="association-value" class="association-value"></strong><button type="button" id="remove-button" class="text-button">Remove</button></div></div>
-        <label class="search-label" for="project-search">Search by project name or full namespace</label>
-        <div class="search-wrap"><span class="search-icon" aria-hidden="true">⌕</span><input id="project-search" type="search" placeholder="e.g. team / platform / app" autocomplete="off" spellcheck="false" aria-controls="project-results" aria-describedby="search-hint" /><span id="searching-indicator" class="searching-indicator" hidden>Searching…</span></div>
-        <p id="search-hint" class="hint">Use ↑ and ↓ to move through results, then Enter to choose.</p>
-        <div id="project-results" class="results" aria-label="GitLab projects"></div>
-        <div id="error-box" class="error-box" role="alert" hidden><span id="error-text"></span><button type="button" id="retry-button" class="text-button">Retry</button></div>
-        <p id="save-hint" class="save-hint"></p>
+      <section class="project-picker" aria-labelledby="project-heading">
+        <div class="section-heading"><h2 id="project-heading">Find a project</h2><span id="searching-indicator" hidden>Searching…</span></div>
+        <input id="project-search" class="project-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search projects…" aria-label="Search GitLab projects by name or full namespace" aria-controls="project-results" aria-describedby="search-hint" />
+        <p id="search-hint" class="helper">Search by project name or full namespace. Arrow keys and Enter choose a result.</p>
+        <div id="project-results" class="project-results" role="group" aria-label="GitLab projects"></div>
+        <div id="error-box" class="error-box" role="alert" hidden><span id="error-text"></span><button id="retry-button" class="quiet-button" type="button">Retry</button></div>
+        <p id="save-hint" class="helper"></p>
       </section>
       <p id="panel-status" class="panel-status" role="status" aria-live="polite"></p>
     </div>`;
@@ -60,8 +57,13 @@ export function createPanel(root: HTMLElement, actions: PanelActions): { render(
   const associationWrap = get<HTMLElement>('association-wrap');
   const associationLabel = get<HTMLElement>('association-label');
   const associationValue = get<HTMLElement>('association-value');
-  const removeButton = get<HTMLButtonElement>('remove-button');
-  const search = get<HTMLInputElement>('project-search');
+  const removeSlot = get<HTMLElement>('remove-slot');
+  const removeButton = document.createElement('button');
+  removeButton.id = 'remove-button';
+  removeButton.type = 'button';
+  removeButton.className = 'quiet-button';
+  removeSlot.append(removeButton);
+  const searchInput = get<HTMLInputElement>('project-search');
   const searchingIndicator = get<HTMLElement>('searching-indicator');
   const results = get<HTMLElement>('project-results');
   const errorBox = get<HTMLElement>('error-box');
@@ -70,30 +72,33 @@ export function createPanel(root: HTMLElement, actions: PanelActions): { render(
   const saveHint = get<HTMLElement>('save-hint');
   const status = get<HTMLElement>('panel-status');
   let current: PanelState | null = null;
+  let query = '';
 
-  // Route all UI events through the supplied actions; the host owns persistence and search.
-  const onSearch = () => actions.search(search.value);
+  // Forward edits while preserving the input and its focus across controller renders.
+  const onInput = () => {
+    query = searchInput.value;
+    actions.search(query);
+  };
   const onRemove = () => {
-    if (current?.canRemove) actions.remove();
+    if (current?.canRemove && !current.busy) actions.remove();
   };
   const onRetry = () => actions.retry();
   const onSearchKeydown = (event: KeyboardEvent) => {
-    if (event.key === 'ArrowDown') {
-      const first = results.querySelector<HTMLButtonElement>('button');
-      if (first) { event.preventDefault(); first.focus(); }
-    }
+    if (event.key !== 'ArrowDown' || !current?.projects.some(project => current?.canSave && !current?.busy)) return;
+    event.preventDefault();
+    results.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
   };
   const onResultsKeydown = (event: KeyboardEvent) => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-    const buttons = Array.from(results.querySelectorAll<HTMLButtonElement>('button'));
+    const buttons = Array.from(results.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
     const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
     if (index < 0) return;
     event.preventDefault();
     const next = index + (event.key === 'ArrowDown' ? 1 : -1);
-    (buttons[next] ?? (next < 0 ? search : buttons[buttons.length - 1]))?.focus();
+    (buttons[next] ?? (next < 0 ? searchInput : buttons[buttons.length - 1]))?.focus();
   };
-  search.addEventListener('input', onSearch);
-  search.addEventListener('keydown', onSearchKeydown);
+  searchInput.addEventListener('input', onInput);
+  searchInput.addEventListener('keydown', onSearchKeydown);
   results.addEventListener('keydown', onResultsKeydown);
   removeButton.addEventListener('click', onRemove);
   retryButton.addEventListener('click', onRetry);
@@ -102,48 +107,42 @@ export function createPanel(root: HTMLElement, actions: PanelActions): { render(
     render(state) {
       current = state;
 
-      // Show only confirmed context; never infer a host or imply an unknown directory is permanent.
+      // Show verified context and distinguish saved associations from session-only choices.
       account.textContent = state.account ?? 'Not connected';
       repository.textContent = state.repository ?? 'Not detected';
-      directory.textContent = state.directory ?? 'Unknown directory';
+      directory.textContent = state.directory ?? 'Unknown';
       associationWrap.hidden = !state.association;
       associationLabel.textContent = state.isUnknown ? 'Choice for this session' : 'Current association';
       associationValue.textContent = state.association?.path ?? '';
       removeButton.textContent = state.isUnknown ? 'Clear choice' : 'Remove';
       removeButton.disabled = !state.canRemove || state.busy;
-      searchingIndicator.hidden = !state.searching;
-      errorBox.hidden = !state.error;
-      errorText.textContent = state.error ?? '';
-      retryButton.disabled = state.busy;
-      status.textContent = state.status || (state.searching ? 'Searching projects…' : state.busy ? 'Working…' : '');
-      status.hidden = !status.textContent;
 
-      // Rebuild only the result buttons, using text nodes for untrusted project paths.
+      // Keep results and actions synchronized with the controller without rendering project paths as HTML.
+      searchingIndicator.hidden = !state.searching;
       const activeId = document.activeElement instanceof HTMLElement && results.contains(document.activeElement)
         ? document.activeElement.dataset.projectId : null;
       results.replaceChildren();
       if (!state.projects.length) {
         const empty = document.createElement('p');
         empty.className = 'empty-results';
-        empty.textContent = state.searching ? 'Looking for projects…' : state.error ? 'Projects are unavailable.' : search.value.trim() ? 'No matching projects. Try a different name or namespace.' : 'Start typing to find a GitLab project.';
+        empty.textContent = state.searching ? 'Searching projects…' : state.error ? 'Projects are unavailable.'
+          : query.trim() ? 'No matching projects. Try another name or namespace.' : 'Search to find a GitLab project.';
         results.append(empty);
       } else {
         for (const project of state.projects) {
           const button = document.createElement('button');
           button.type = 'button';
-          button.className = 'result-button';
+          button.className = 'project-row';
           button.dataset.projectId = String(project.id);
           button.setAttribute('aria-pressed', String(project.id === state.selectedId));
           button.disabled = !state.canSave || state.busy;
-          button.setAttribute('aria-label', `${state.isUnknown ? 'Use for this session' : 'Save association with'}: ${project.path}`);
           const path = document.createElement('span');
-          path.className = 'result-path';
+          path.className = 'project-path';
           path.textContent = project.path;
-          const choice = document.createElement('span');
-          choice.className = 'result-choice';
-          choice.setAttribute('aria-hidden', 'true');
-          choice.textContent = project.id === state.selectedId ? 'Selected ✓' : state.isUnknown ? 'Use for this session ↗' : 'Save ↗';
-          button.append(path, choice);
+          const action = document.createElement('span');
+          action.className = 'project-action';
+          action.textContent = project.id === state.selectedId ? 'Selected' : state.isUnknown ? 'Use for this session' : 'Choose';
+          button.append(path, action);
           button.addEventListener('click', () => {
             if (current?.canSave && !current.busy) actions.save(project.id);
           });
@@ -151,16 +150,19 @@ export function createPanel(root: HTMLElement, actions: PanelActions): { render(
         }
       }
       if (activeId) results.querySelector<HTMLButtonElement>(`[data-project-id="${activeId}"]`)?.focus();
-
-      // Explain whether a project choice will persist beyond this session.
+      errorBox.hidden = !state.error;
+      errorText.textContent = state.error ?? '';
+      retryButton.disabled = state.busy;
       saveHint.textContent = state.isUnknown
-        ? 'This directory is not registered. Choosing a project uses it for this session only.'
-        : 'Choose a project to save it for this local repository and its worktrees.';
+        ? 'This directory is not registered. A choice applies to this session only.'
+        : 'Choosing a project saves it for this local repository and its worktrees.';
+      status.textContent = state.status || (state.searching ? 'Searching projects…' : state.busy ? 'Working…' : '');
+      status.hidden = !status.textContent;
     },
     destroy() {
-      // Remove event handlers before clearing the panel so remounting cannot duplicate actions.
-      search.removeEventListener('input', onSearch);
-      search.removeEventListener('keydown', onSearchKeydown);
+      // Release event handlers before removing the panel.
+      searchInput.removeEventListener('input', onInput);
+      searchInput.removeEventListener('keydown', onSearchKeydown);
       results.removeEventListener('keydown', onResultsKeydown);
       removeButton.removeEventListener('click', onRemove);
       retryButton.removeEventListener('click', onRetry);
