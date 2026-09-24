@@ -15,3 +15,11 @@ _Avoid_: Local project
 **GitLab connection**:
 A user's authorized relationship with one GitLab account on one GitLab.com or self-managed instance.
 _Avoid_: Project, server
+
+**Session context item**:
+A GitLab issue or merge request associated with an OpenChamber message or session as context.
+_Avoid_: Issue–merge request link
+
+**Project association**:
+The GitLab project a user chooses as the default for a local repository and its registered worktrees.
+_Avoid_: Remote match
