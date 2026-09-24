@@ -1,0 +1,43 @@
+{
+  "name": "openchamber-extension-gitlab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Associate OpenChamber local repositories with GitLab projects.",
+  "scripts": {
+    "build": "bunx openchamber-guest-bundle src/main.ts panel/main.js && bun run validate",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "validate": "bun run scripts/validate-package.ts"
+  },
+  "devDependencies": {
+    "@openchamber/sdk": "^2.0.0",
+    "@types/bun": "^1.4.2",
+    "happy-dom": "^20.14.5",
+    "typescript": "^7.0.2"
+  },
+  "openchamber": {
+    "apiVersion": 1,
+    "contributes": {
+      "panel": {
+        "id": "gitlab-self-managed",
+        "name": "Self-Managed GitLab",
+        "icon": "window",
+        "entry": "panel/index.html"
+      },
+      "capabilities": ["sessions"],
+      "integration": {
+        "name": "Self-Managed GitLab",
+        "description": "Search visible projects on a self-managed GitLab instance and associate them with OpenChamber repositories.",
+        "token": {
+          "apiOrigin": "https://gitlab.invalid",
+          "scheme": "bearer",
+          "account": {
+            "path": "/api/v4/user",
+            "name": "username"
+          }
+        }
+      }
+    }
+  }
+}
