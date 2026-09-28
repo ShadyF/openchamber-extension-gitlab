@@ -1,0 +1,653 @@
+<!doctype html>
+<!-- Prototype only: three GitLab workspace concepts using fictional sample data. No API calls or persistence. -->
+<!-- Three structurally different panel variants, switchable via ?variant=A|B|C in a standalone host-context preview. -->
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>OpenChamber GitLab workspace prototype</title>
+  <style>
+    :root {
+      --bg: #f7f7f8;
+      --panel: #ffffff;
+      --elevated: #f1f2f4;
+      --hover: #e9ebee;
+      --selected: #e5e9f0;
+      --text: #202229;
+      --muted: #6d717a;
+      --faint: #969aa3;
+      --border: #dfe1e5;
+      --strong-border: #c9ccd2;
+      --accent: #526fa8;
+      --accent-soft: #e7ecf7;
+      --accent-text: #294b86;
+      --success: #2b7d58;
+      --success-soft: #e2f2e9;
+      --warning: #9b651c;
+      --warning-soft: #f8edd7;
+      --danger: #b8423e;
+      --danger-soft: #f8e5e4;
+      --gitlab: #7759c2;
+      --gitlab-soft: #eee9fa;
+      --shadow: 0 16px 48px rgba(24, 27, 33, .14);
+      --radius: 10px;
+      --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    }
+
+    html[data-theme="dark"] {
+      --bg: #151619;
+      --panel: #1d1f23;
+      --elevated: #25272c;
+      --hover: #2b2e34;
+      --selected: #303541;
+      --text: #eceef2;
+      --muted: #a2a6af;
+      --faint: #777c86;
+      --border: #34373e;
+      --strong-border: #454952;
+      --accent: #92aee7;
+      --accent-soft: #29344b;
+      --accent-text: #bfd0f3;
+      --success: #69bd8c;
+      --success-soft: #213b2e;
+      --warning: #e2ae5f;
+      --warning-soft: #403321;
+      --danger: #eb8580;
+      --danger-soft: #472a2b;
+      --gitlab: #b5a0ed;
+      --gitlab-soft: #342d49;
+      --shadow: 0 20px 56px rgba(0, 0, 0, .34);
+    }
+
+    * { box-sizing: border-box; }
+    html { min-width: 320px; background: var(--bg); }
+    body { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100vh; margin: 0; color: var(--text); background: var(--bg); font: 13px/1.45 var(--sans); }
+    button, input, select { color: inherit; font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .48; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    ::selection { color: var(--text); background: var(--accent-soft); }
+
+    /* Frame the concept inside a restrained approximation of the host application. */
+    .host { display: grid; grid-template-columns: 52px minmax(300px, 1fr) minmax(390px, 440px); grid-template-rows: 42px minmax(0, 1fr); min-height: 0; overflow: hidden; }
+    .host-topbar { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--panel); }
+    .host-mark { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px; background: var(--text); color: var(--panel); font-weight: 800; }
+    .host-path { min-width: 0; overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+    .host-path strong { color: var(--text); font-weight: 560; }
+    .prototype-flag { margin-left: auto; padding: 2px 7px; border: 1px solid var(--warning); border-radius: 999px; color: var(--warning); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .host-rail { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 10px; border-right: 1px solid var(--border); background: var(--panel); }
+    .rail-icon { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 8px; color: var(--muted); background: transparent; }
+    .rail-icon.active { color: var(--text); background: var(--selected); }
+    .rail-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+    .host-workspace { position: relative; overflow: hidden; background: var(--bg); }
+    .editor-ghost { width: min(680px, 80%); margin: 10vh auto; color: var(--faint); }
+    .editor-ghost .line { height: 8px; margin: 13px 0; border-radius: 2px; background: var(--border); }
+    .editor-ghost .line:nth-child(2n) { width: 84%; }
+    .editor-ghost .line:nth-child(3n) { width: 62%; margin-left: 7%; }
+    .panel { position: relative; min-width: 0; height: 100%; overflow: auto; border-left: 1px solid var(--border); background: var(--panel); scrollbar-color: var(--strong-border) transparent; scrollbar-width: thin; }
+    .panel::-webkit-scrollbar { width: 6px; }
+    .panel::-webkit-scrollbar-thumb { border-radius: 9px; background: var(--strong-border); }
+
+    /* Keep prototype controls outside the simulated host and unmistakable as test harness UI. */
+    .prototype-harness { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 8px 12px; border-bottom: 2px solid var(--warning); color: var(--text); background: var(--warning-soft); }
+    .harness-title { flex: 0 0 auto; }
+    .harness-title strong { display: block; font-size: 12px; }
+    .harness-title span { display: block; color: var(--muted); font-size: 12px; }
+    .harness-controls { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(260px, 1fr); gap: 8px; min-width: 0; flex: 1; }
+    .harness-control { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 7px; min-width: 0; color: var(--muted); font-size: 12px; font-weight: 650; }
+    .harness-control select { min-width: 0; height: 32px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--strong-border)); border-radius: 7px; color: var(--text); background: var(--panel); font-size: 12px; font-weight: 400; }
+
+    /* Reusable native-feeling primitives keep all three concepts in one host world. */
+    .icon { width: 15px; height: 15px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 0 10px; border: 1px solid var(--strong-border); border-radius: 7px; color: var(--text); background: var(--panel); font-weight: 550; }
+    .btn:hover { background: var(--hover); }
+    .btn.primary { border-color: transparent; color: var(--accent-text); background: var(--accent-soft); }
+    .btn.primary:hover { filter: brightness(.97); }
+    .btn.ghost { border-color: transparent; color: var(--muted); background: transparent; }
+    .btn.ghost:hover { color: var(--text); background: var(--hover); }
+    .btn.small { min-height: 28px; padding-inline: 8px; font-size: 11px; }
+    .badge { display: inline-flex; align-items: center; gap: 4px; min-height: 19px; padding: 1px 6px; border-radius: 999px; color: var(--muted); background: var(--elevated); font-size: 11px; font-weight: 650; white-space: nowrap; }
+    .badge.open { color: var(--success); background: var(--success-soft); }
+    .badge.review { color: var(--gitlab); background: var(--gitlab-soft); }
+    .label { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .055em; text-transform: uppercase; }
+    .muted { color: var(--muted); }
+    .mono { font-family: var(--mono); font-size: 11px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .avatar { width: 22px; height: 22px; display: grid; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #fff; background: #8668bd; font-size: 9px; font-weight: 750; }
+    .truncate { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .title-row { display: flex; align-items: center; gap: 7px; min-width: 0; }
+    .count { color: var(--faint); font-variant-numeric: tabular-nums; }
+    .row-button { width: 100%; border: 0; color: inherit; background: transparent; text-align: left; }
+    .row-button:hover { background: var(--hover); }
+    .row-button[aria-selected="true"] { background: var(--selected); }
+    h1, h2, h3, p { margin: 0; }
+
+    /* The shared repository strip makes association secondary but always understandable. */
+    .repo-strip { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    .repo-logo { width: 27px; height: 27px; display: grid; flex: 0 0 auto; place-items: center; border-radius: 8px; color: var(--gitlab); background: var(--gitlab-soft); }
+    .repo-copy { min-width: 0; flex: 1; }
+    .repo-copy strong { display: block; overflow: hidden; font-size: 12px; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }
+    .repo-copy span { display: block; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .repo-strip .btn { flex: 0 0 auto; }
+
+    /* Variant A moves between a full-width inbox and a full-width focused detail. */
+    .variant-a { min-height: 100%; }
+    .a-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 12px 10px; }
+    .a-head h1 { font-size: 17px; letter-spacing: -.02em; }
+    .tabs { display: flex; align-items: center; gap: 2px; padding: 0 10px 9px; border-bottom: 1px solid var(--border); }
+    .tab { min-height: 28px; padding: 0 9px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; font-size: 11px; font-weight: 560; }
+    .tab:hover { color: var(--text); background: var(--hover); }
+    .tab[aria-selected="true"] { color: var(--text); background: var(--selected); }
+    .a-queue { min-height: 420px; }
+    .queue-head { display: flex; align-items: center; justify-content: space-between; padding: 10px; }
+    .queue-head strong { font-size: 11px; }
+    .work-row { display: block; padding: 12px; border-bottom: 1px solid var(--border); }
+    .work-row .meta { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--muted); font-size: 11px; }
+    .work-row strong { display: -webkit-box; overflow: hidden; font-size: 11px; font-weight: 590; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .work-row .title-row strong { min-width: 0; flex: 1; }
+    .a-detail { padding: 12px 14px 92px; }
+    .detail-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
+    .back-button { margin-left: -7px; }
+    .detail-type { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .a-detail h2 { font-size: 18px; line-height: 1.25; letter-spacing: -.025em; }
+    .detail-meta { display: flex; flex-wrap: wrap; gap: 7px 10px; margin-top: 10px; color: var(--muted); font-size: 11px; }
+    .detail-body { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .detail-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }
+    .checklist { display: grid; gap: 9px; margin-top: 16px; }
+    .check { display: flex; gap: 8px; color: var(--muted); font-size: 11px; }
+    .check span:first-child { color: var(--success); }
+    .handoff { margin-top: 18px; padding: 12px; border-radius: 12px; background: var(--elevated); }
+    .handoff h3, .mr-create h3, .mr-overview h3 { font-size: 14px; letter-spacing: -.015em; }
+    .handoff p, .mr-create > p, .mr-overview > p { margin-top: 5px; color: var(--muted); font-size: 11px; }
+    .handoff-flow { display: grid; gap: 7px; margin-top: 12px; }
+    .handoff-step { display: grid; grid-template-columns: 20px 1fr; gap: 7px; align-items: start; color: var(--muted); font-size: 11px; }
+    .handoff-step span:first-child { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; color: var(--text); background: var(--panel); font-size: 10px; font-weight: 700; }
+    .handoff-step.current { color: var(--text); }
+    .handoff-step.current span:first-child { color: var(--accent-text); background: var(--accent-soft); }
+    .handoff .btn { width: 100%; margin-top: 13px; }
+    .mr-create, .mr-overview { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .mr-project-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+    .branch-pair { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: end; margin-top: 14px; }
+    .branch-pair label, .form-field label { display: block; color: var(--muted); font-size: 11px; }
+    .branch-pair select, .form-field input, .form-field textarea { width: 100%; margin-top: 4px; padding: 7px 8px; border: 1px solid var(--strong-border); border-radius: 7px; color: var(--text); background: var(--panel); }
+    .branch-pair select { min-width: 0; height: 34px; }
+    .branch-arrow { padding-bottom: 8px; color: var(--faint); }
+    .form-field { margin-top: 11px; }
+    .form-field textarea { min-height: 74px; resize: vertical; }
+    .form-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .form-label-row .btn { min-height: 24px; }
+    .form-options { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+    .check-option { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; color: var(--muted); font-size: 11px; }
+    .permission-note { margin-top: 10px; color: var(--faint); font-size: 11px; }
+    .mr-create .detail-actions { justify-content: flex-end; }
+    .mr-summary { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .mr-tabs { display: flex; gap: 2px; margin-top: 14px; border-bottom: 1px solid var(--border); }
+    .mr-tabs button { min-height: 30px; padding: 0 7px; border: 0; border-bottom: 2px solid transparent; color: var(--muted); background: transparent; font-size: 11px; }
+    .mr-tabs button[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--text); }
+    .mr-panel { padding-block: 12px; }
+    .mr-description { color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .job { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 7px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+    .job:last-child { border-bottom: 0; }
+    .job-status { color: var(--success); }
+    .discussion { display: flex; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+    .discussion:last-child { border-bottom: 0; }
+    .discussion p { color: var(--muted); font-size: 11px; }
+    .merge-box { margin-top: 14px; padding: 11px; border-radius: 11px; background: var(--success-soft); }
+    .merge-box strong { color: var(--success); }
+    .merge-box p { margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .merge-controls { display: flex; gap: 6px; margin-top: 10px; }
+    .merge-controls .btn:first-child { flex: 1; }
+
+    /* Variant B is a session brief: one active work item surrounded by a compact queue. */
+    .variant-b { min-height: 100%; }
+    .b-intro { padding: 18px 14px 14px; }
+    .b-intro h1 { max-width: 13ch; font-size: 25px; line-height: 1.08; letter-spacing: -.035em; }
+    .b-intro p { max-width: 34ch; margin-top: 7px; color: var(--muted); }
+    .b-active { margin: 0 12px; padding: 14px; border-radius: 14px; background: var(--elevated); }
+    .b-active-top { display: flex; align-items: center; gap: 8px; }
+    .b-active h2 { margin-top: 15px; font-size: 19px; line-height: 1.25; letter-spacing: -.025em; }
+    .branch { margin-top: 11px; padding: 7px 9px; border-radius: 7px; color: var(--muted); background: var(--panel); font-family: var(--mono); font-size: 11px; overflow-wrap: anywhere; }
+    .b-progress { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 14px; }
+    .step { padding-top: 7px; border-top: 2px solid var(--strong-border); color: var(--muted); font-size: 11px; }
+    .step.done { border-color: var(--success); color: var(--text); }
+    .step.current { border-color: var(--accent); color: var(--text); }
+    .b-actions { display: flex; gap: 7px; margin-top: 15px; }
+    .b-section { margin-top: 19px; }
+    .b-section-head { display: flex; align-items: center; justify-content: space-between; padding: 0 14px 7px; }
+    .b-section-head h2 { font-size: 12px; }
+    .b-queue { border-block: 1px solid var(--border); }
+    .b-row { display: grid; grid-template-columns: 34px minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+    .b-row:last-child { border-bottom: 0; }
+    .b-row-id { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+    .b-row strong { display: block; overflow: hidden; font-size: 11px; font-weight: 560; text-overflow: ellipsis; white-space: nowrap; }
+    .b-row small { color: var(--muted); font-size: 11px; }
+
+    /* Variant C is a two-lane workboard that keeps issues and merge requests equally visible. */
+    .variant-c { min-height: 100%; }
+    .c-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; padding: 16px 12px 12px; }
+    .c-head h1 { font-size: 20px; letter-spacing: -.025em; }
+    .c-head p { margin-top: 2px; color: var(--muted); font-size: 11px; }
+    .lanes { display: grid; grid-template-columns: 1fr 1fr; border-block: 1px solid var(--border); }
+    .lane + .lane { border-left: 1px solid var(--border); }
+    .lane-head { display: flex; align-items: center; justify-content: space-between; padding: 9px 10px; background: var(--elevated); }
+    .lane-head strong { font-size: 11px; }
+    .lane-item { display: block; padding: 10px; border-top: 1px solid var(--border); }
+    .lane-item:first-of-type { border-top: 0; }
+    .lane-item strong { display: block; font-size: 11px; font-weight: 580; line-height: 1.35; }
+    .lane-item footer { display: flex; align-items: center; justify-content: space-between; gap: 5px; margin-top: 8px; color: var(--muted); font-size: 11px; }
+    .c-focus { padding: 14px 12px 88px; }
+    .c-focus-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .c-focus h2 { max-width: 24ch; margin-top: 5px; font-size: 17px; line-height: 1.28; letter-spacing: -.02em; }
+    .c-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-top: 14px; overflow: hidden; border-radius: 9px; background: var(--border); }
+    .c-stat { padding: 10px; background: var(--elevated); }
+    .c-stat strong { display: block; font-size: 13px; }
+    .c-stat span { color: var(--muted); font-size: 11px; }
+    .c-links { display: grid; gap: 1px; margin-top: 14px; overflow: hidden; border-block: 1px solid var(--border); background: var(--border); }
+    .c-link { display: flex; align-items: center; gap: 8px; padding: 9px 3px; border: 0; color: var(--text); background: var(--panel); text-align: left; }
+    .c-link:hover { background: var(--hover); }
+    .c-link span:nth-child(2) { flex: 1; }
+
+    /* Setup and connection states replace the work surface without becoming its permanent architecture. */
+    .state-view { min-height: calc(100vh - 82px); padding: 20px 14px 90px; }
+    .state-view h1 { max-width: 16ch; font-size: 23px; line-height: 1.13; letter-spacing: -.03em; }
+    .state-view > p { max-width: 38ch; margin-top: 8px; color: var(--muted); }
+    .prereq { margin-top: 23px; padding: 14px; border-radius: 12px; background: var(--elevated); }
+    .prereq strong { display: block; font-size: 12px; }
+    .prereq p { margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .prereq .btn { margin-top: 14px; }
+    .association-preview { display: flex; align-items: center; gap: 9px; margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .association-preview .repo-copy strong { color: var(--muted); }
+    .project-search { width: 100%; height: 36px; margin-top: 18px; padding: 0 11px; border: 1px solid var(--strong-border); border-radius: 8px; background: var(--panel); }
+    .project-options { margin-top: 8px; border-block: 1px solid var(--border); }
+    .project-option { display: block; width: 100%; padding: 10px 4px; border: 0; border-bottom: 1px solid var(--border); color: var(--text); background: transparent; text-align: left; }
+    .project-option:last-child { border-bottom: 0; }
+    .project-option:hover { background: var(--hover); }
+    .project-option strong, .project-option span { display: block; }
+    .project-option span { color: var(--muted); font-size: 11px; }
+
+    /* The switcher is intentionally unlike the host so it cannot be mistaken for product UI. */
+    .switcher { position: fixed; z-index: 100; left: 50%; bottom: 14px; display: grid; grid-template-columns: 36px minmax(120px, auto) 36px; align-items: center; overflow: hidden; border-radius: 999px; color: #f7f8fa; background: #111318; box-shadow: var(--shadow); transform: translateX(-50%); }
+    .switcher button { width: 36px; height: 36px; border: 0; color: inherit; background: transparent; font-size: 17px; }
+    .switcher button:hover { background: #2a2d34; }
+    .switcher-label { padding: 0 10px; border-inline: 1px solid #30333a; font-size: 11px; font-weight: 650; text-align: center; white-space: nowrap; }
+    .toast { position: fixed; z-index: 120; right: 16px; bottom: 66px; max-width: 280px; padding: 9px 11px; border-radius: 9px; color: var(--text); background: var(--panel); box-shadow: var(--shadow); opacity: 0; pointer-events: none; transform: translateY(6px); transition: opacity 150ms ease, transform 150ms ease; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 760px) {
+      .prototype-harness { align-items: stretch; }
+      .harness-title { width: 92px; }
+      .harness-controls { grid-template-columns: 1fr; }
+      .host { display: block; min-height: 0; }
+      .host-topbar, .host-rail, .host-workspace { display: none; }
+      .panel { height: 100%; border-left: 0; }
+      .prototype-flag { display: inline-flex; }
+    }
+
+    @media (max-width: 410px) {
+      .prototype-harness { display: block; padding: 7px 8px; }
+      .harness-title { width: auto; margin-bottom: 6px; }
+      .harness-title span { display: inline; margin-left: 5px; }
+      .harness-controls { gap: 5px; }
+      .harness-control { grid-template-columns: 84px minmax(0, 1fr); }
+      .repo-strip { padding-inline: 10px; }
+      .a-detail { padding: 14px 12px 92px; }
+      .branch-pair { grid-template-columns: 1fr; }
+      .branch-arrow { display: none; }
+      .b-intro h1 { max-width: 15ch; font-size: 23px; }
+      .lanes { grid-template-columns: 1fr; }
+      .lane + .lane { border-top: 1px solid var(--strong-border); border-left: 0; }
+      .lane-item:nth-of-type(n+3) { display: none; }
+      .toast { right: 10px; bottom: 62px; left: 10px; max-width: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="prototype-harness" aria-label="Prototype test harness">
+    <div class="harness-title"><strong>Prototype harness</strong><span>Lab/demo controls only</span></div>
+    <div class="harness-controls">
+      <label class="harness-control"><span>Preview state</span><select id="lab-preview-state"><option value="connected">Daily work</option><option value="unassociated">Setup · connected, choose project</option><option value="disconnected">Setup · connection required</option></select></label>
+      <label class="harness-control"><span>Session attachment</span><select id="lab-session-mode"><option value="none">No verified linked item</option><option value="issue-local">Linked issue #184 · branch not pushed</option><option value="issue-pushed">Linked issue #184 · branch pushed</option><option value="mr">Linked merge request !72</option></select></label>
+    </div>
+  </aside>
+
+  <div class="host">
+    <header class="host-topbar">
+      <div class="host-mark" aria-hidden="true">O</div>
+      <div class="host-path"><strong>OpenChamber</strong>&nbsp; / &nbsp;atlas-web&nbsp; / &nbsp;feature/checkout-recovery</div>
+      <span class="prototype-flag">Prototype · sample data</span>
+    </header>
+
+    <nav class="host-rail" aria-label="OpenChamber preview navigation">
+      <button class="rail-icon" type="button" aria-label="Files" data-preview-action="Host navigation is outside this prototype."><svg viewBox="0 0 24 24"><path d="M3 6h7l2 2h9v11H3z"/></svg></button>
+      <button class="rail-icon" type="button" aria-label="Sessions" data-preview-action="Host navigation is outside this prototype."><svg viewBox="0 0 24 24"><path d="M5 5h14v11H9l-4 3z"/></svg></button>
+      <button class="rail-icon active" type="button" aria-label="GitLab"><svg viewBox="0 0 24 24"><path d="m4 9 2-5 3 5h6l3-5 2 5-2 8-6 4-6-4z"/></svg></button>
+    </nav>
+
+    <section class="host-workspace" aria-label="Dimmed OpenChamber workspace context">
+      <div class="editor-ghost" aria-hidden="true"><div class="line"></div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line"></div></div>
+    </section>
+
+    <aside class="panel" aria-label="GitLab extension prototype"><div id="surface"></div></aside>
+  </div>
+
+  <nav class="switcher" aria-label="Prototype variants">
+    <button type="button" id="previous" aria-label="Previous variant">←</button>
+    <div class="switcher-label" id="variant-label"></div>
+    <button type="button" id="next" aria-label="Next variant">→</button>
+  </nav>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      const variants = {
+        A: { name: "Work inbox" },
+        B: { name: "Session brief" },
+        C: { name: "Two-lane board" }
+      };
+
+      const workItems = [
+        { id: "#184", kind: "issue", title: "Recover checkout after payment timeout", status: "Open", author: "Maya Chen", age: "2h", label: "backend", body: "Customers who return after a payment timeout can land on an empty confirmation view. Preserve the checkout identifier and resume status polling when the page is restored." },
+        { id: "!72", kind: "merge request", title: "Retry payment status on reconnect", status: "Review", author: "Jon Bell", age: "38m", label: "2 approvals", body: "Adds bounded retry behavior when the browser reconnects and keeps the existing cancellation path intact." },
+        { id: "#179", kind: "issue", title: "Explain expired checkout sessions", status: "Open", author: "Priya Nair", age: "1d", label: "frontend", body: "Replace the generic error with a clear expired-session message and a path back to cart." },
+        { id: "!69", kind: "merge request", title: "Add recovery integration coverage", status: "Review", author: "Lena Ortiz", age: "2d", label: "pipeline passed", body: "Covers timeout, refresh, and reconnect paths with deterministic fixtures." }
+      ];
+
+      const surface = document.querySelector("#surface");
+      const variantLabel = document.querySelector("#variant-label");
+      const toast = document.querySelector("#toast");
+      const variantSwitcher = document.querySelector(".switcher");
+      const labPreviewState = document.querySelector("#lab-preview-state");
+      const labSessionMode = document.querySelector("#lab-session-mode");
+      let currentState = "connected";
+      let selectedId = null;
+      let activeWorkType = "issue";
+      let mrDetailTab = "overview";
+      const allowedSessionModes = ["none", "issue-local", "issue-pushed", "mr"];
+      const requestedSessionMode = new URLSearchParams(window.location.search).get("session");
+      let sessionMode = allowedSessionModes.includes(requestedSessionMode) ? requestedSessionMode : "none";
+      let toastTimer;
+
+      const icon = (name) => {
+        const paths = {
+          issue: '<circle cx="12" cy="12" r="8"/><path d="M12 8v5m0 3h.01"/>',
+          merge: '<circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="7" r="2"/><path d="M6 7v10m2-8h5a5 5 0 0 1 5 5v-5"/>',
+          external: '<path d="M14 4h6v6m0-6-9 9"/><path d="M18 13v6H5V6h6"/>',
+          context: '<path d="M4 5h16v14H4zM8 9h8m-8 4h5"/>',
+          branch: '<circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10m2-7h5a5 5 0 0 0 5-5v1"/>'
+        };
+        return `<svg class="icon" aria-hidden="true" viewBox="0 0 24 24">${paths[name]}</svg>`;
+      };
+
+      const repoStrip = () => `
+        <div class="repo-strip">
+          <div class="repo-logo" aria-hidden="true">${icon("branch")}</div>
+          <div class="repo-copy"><strong>northstar / atlas-web</strong><span>Associated with local repository atlas-web</span></div>
+          <button class="btn ghost small" type="button" data-preview-action="Association controls would open here.">Change</button>
+        </div>`;
+
+      const badgeFor = (item) => `<span class="badge ${item.status === "Review" ? "review" : "open"}"><span class="dot"></span>${item.status}</span>`;
+
+      // Show the native handoff before GitLab can create a merge request from a remote branch.
+      const renderPrePushHandoff = () => `
+        <section class="handoff">
+          <h3>No open merge request</h3>
+          <p>Push the session branch with OpenChamber's Git UI first. GitLab needs a remote source branch before it can create a merge request.</p>
+          <div class="handoff-flow">
+            <div class="handoff-step current"><span>1</span><div><strong>Push in OpenChamber</strong><br><span class="mono">feature/checkout-recovery</span> is local only</div></div>
+            <div class="handoff-step"><span>2</span><div><strong>Create in GitLab</strong><br>The merge request form becomes available after the remote branch is detected.</div></div>
+          </div>
+          <button class="btn primary" type="button" data-preview-action="Preview only: OpenChamber's native Git UI would open for push.">${icon("branch")}Open Git UI to push</button>
+        </section>`;
+
+      // Preview the GitLab-supported fields once the source branch exists on the remote.
+      const renderMergeRequestForm = () => `
+        <section class="mr-create">
+          <h3>Create merge request</h3>
+          <p>The session branch is available on the associated GitLab project.</p>
+          <button class="btn ghost small mr-project-link" type="button" data-preview-action="Preview only: northstar / atlas-web would open in GitLab.">northstar / atlas-web ${icon("external")}</button>
+          <div class="branch-pair">
+            <label>Source branch<select aria-label="Remote source branch"><option>feature/checkout-recovery</option></select></label>
+            <span class="branch-arrow" aria-hidden="true">→</span>
+            <label>Target branch<select aria-label="Target branch"><option>main</option><option>release</option></select></label>
+          </div>
+          <div class="form-field"><label>Title<input type="text" value="Recover checkout after payment timeout" /></label></div>
+          <div class="form-field"><div class="form-label-row"><label for="mr-description">Description</label><button class="btn ghost small" type="button" data-preview-action="Preview only: AI would draft a description from the issue and session changes.">AI Generate</button></div><textarea id="mr-description">Closes #184
+
+Restores checkout status polling after a payment timeout and preserves the existing cancellation path.</textarea></div>
+          <div class="form-options"><label class="check-option"><input type="checkbox" /> Draft <span class="muted">Adds Draft: to title</span></label><button class="btn small" type="button" data-preview-action="Preview only: optional session context would attach issue #184 and the current summary.">Optional context · Add</button></div>
+          <p class="permission-note">Creation is available only when your GitLab role can create merge requests for this project.</p>
+          <div class="detail-actions"><button class="btn" type="button" data-preview-action="Preview only: form changes would be discarded.">Cancel</button><button class="btn primary" type="button" data-preview-action="Preview only: this would create a GitLab merge request from the remote source branch.">${icon("merge")}Create merge request</button></div>
+        </section>`;
+
+      // Match merge request content to the selected queue item instead of reusing session data.
+      const renderMergeRequestPanel = (item = workItems[1], embedded = false) => {
+        const mergeRequestDetails = {
+          "!72": { source: "feature/checkout-recovery", target: "main", linkedIssue: "#184", linkedTitle: "Recover checkout after payment timeout", approvals: "2 approvals", discussions: "no unresolved discussions", jobs: ["unit-tests", "browser-integration", "lint"] },
+          "!69": { source: "test/recovery-coverage", target: "main", linkedIssue: "#179", linkedTitle: "Explain expired checkout sessions", approvals: "1 approval", discussions: "1 unresolved discussion", jobs: ["integration-tests", "browser-fixtures", "lint"] }
+        };
+        const detail = mergeRequestDetails[item.id] || mergeRequestDetails["!72"];
+        const panels = {
+          overview: `<div class="mr-panel"><p class="mr-description">${item.body}</p><div class="checklist"><div class="check"><span>✓</span><span>Linked issue <span class="mono">${detail.linkedIssue}</span> · ${detail.linkedTitle}</span></div><div class="check"><span>✓</span><span>${detail.approvals} · ${detail.discussions}</span></div></div></div>`,
+          checks: `<div class="mr-panel">${detail.jobs.map((job, index) => `<div class="job"><span class="job-status">✓</span><span>${job}</span><span class="muted">${["1m 42s", "3m 08s", "36s"][index]}</span></div>`).join("")}</div>`,
+          comments: `<div class="mr-panel"><div class="discussion"><span class="avatar">${item.author.split(" ").map((part) => part[0]).join("")}</span><p><strong>${item.author}</strong><br>${item.id === "!72" ? "The reconnect case now keeps the same checkout identifier." : "The timeout and refresh fixtures now cover the expected recovery paths."}</p></div><div class="discussion"><span class="avatar">MC</span><p><strong>Maya Chen</strong><br>${detail.discussions === "no unresolved discussions" ? "Approved after the latest pipeline." : "Requested one fixture naming change before approval."}</p></div></div>`
+        };
+
+        return `<section class="mr-overview">
+          ${embedded ? "" : `<h3>Merge request <span class="mono">${item.id}</span></h3><p>${item.title}</p>`}
+          <div class="mr-summary"><span class="badge open">Open</span><span class="badge"><span class="mono">${detail.source}</span> → <span class="mono">${detail.target}</span></span><span class="badge open">Pipeline passed</span></div>
+          <div class="mr-tabs" role="tablist" aria-label="Merge request detail"><button type="button" role="tab" data-mr-tab="overview" aria-selected="${mrDetailTab === "overview"}">Overview</button><button type="button" role="tab" data-mr-tab="checks" aria-selected="${mrDetailTab === "checks"}">Pipelines & jobs</button><button type="button" role="tab" data-mr-tab="comments" aria-selected="${mrDetailTab === "comments"}">Discussions</button></div>
+          ${panels[mrDetailTab]}
+          <div class="merge-box"><strong>${detail.discussions === "no unresolved discussions" ? "Ready to merge" : "Merge blocked"}</strong><p>Preview status only. GitLab permissions, unresolved discussions, and current branch protections still apply.</p><label class="check-option"><input type="checkbox" checked /> Squash commits</label><div class="merge-controls"><button class="btn primary" type="button" ${detail.discussions === "no unresolved discussions" ? "" : "disabled"} data-preview-action="Preview only: this would merge ${item.id} after GitLab rechecks permissions and protections.">Merge</button><button class="btn" type="button" data-preview-action="Preview only: additional GitLab merge options would open." aria-label="More merge options">•••</button></div></div>
+        </section>`;
+      };
+
+      // Render a focused item without keeping the project list beside it.
+      const renderFocusedItem = (selected, linkedMode = "none") => {
+        const isLinked = linkedMode !== "none";
+        const isIssue = selected.kind === "issue";
+        const linkedWorkflow = linkedMode === "issue-local" ? renderPrePushHandoff() : linkedMode === "issue-pushed" ? renderMergeRequestForm() : "";
+        const normalPrimaryAction = isIssue
+          ? `<button class="btn primary" type="button" data-preview-action="Preview only: OpenChamber would start a new worktree session with ${selected.id} attached.">${icon("branch")}Open in new worktree</button>`
+          : `<button class="btn primary" type="button" data-preview-action="Preview only: ${selected.id} would be attached as session context.">${icon("context")}Use in session</button>`;
+
+        return `<article class="a-detail">
+          <div class="detail-nav">${isLinked ? `<span class="badge open">Linked to this session</span>` : `<button class="btn ghost back-button" type="button" data-back-to-list>← Back to list</button>`}<span class="mono">${selected.id}</span></div>
+          <div class="detail-type">${badgeFor(selected)}<span>${selected.kind}</span></div>
+          <h2>${selected.title}</h2>
+          <div class="detail-meta"><span class="avatar">${selected.author.split(" ").map((part) => part[0]).join("")}</span><span>${selected.author}</span><span>Updated ${selected.age} ago</span><span class="badge">${selected.label}</span></div>
+          <p class="detail-body">${selected.body}</p>
+          <div class="detail-actions">${isLinked ? "" : normalPrimaryAction}<button class="btn" type="button" data-preview-action="Preview only: this would open ${selected.id} in GitLab.">${icon("external")}Open in GitLab</button></div>
+          ${linkedWorkflow}${!isIssue ? renderMergeRequestPanel(selected, true) : ""}
+        </article>`;
+      };
+
+      // Show a single-column project inbox unless the lab simulates a verified session link.
+      const renderVariantA = () => {
+        const visibleItems = workItems.filter((item) => item.kind === activeWorkType);
+        const rows = visibleItems.map((item) => `
+          <button class="row-button work-row" type="button" data-item="${item.id}">
+            <div class="title-row"><strong>${item.title}</strong>${badgeFor(item)}</div>
+            <span class="meta"><span class="mono">${item.id}</span><span>${item.kind}</span><span>·</span><span>${item.age}</span></span>
+          </button>`).join("");
+
+        // A verified lab attachment bypasses project discovery and opens only its linked item.
+        if (sessionMode !== "none") {
+          const linkedItem = workItems.find((item) => item.id === (sessionMode === "mr" ? "!72" : "#184"));
+          return `<section class="variant-a">${repoStrip()}${renderFocusedItem(linkedItem, sessionMode)}</section>`;
+        }
+
+        // A queue selection replaces the inbox until the user returns with the back action.
+        const selected = workItems.find((item) => item.id === selectedId);
+        if (selected) return `<section class="variant-a">${repoStrip()}${renderFocusedItem(selected)}</section>`;
+
+        return `<section class="variant-a">
+          ${repoStrip()}
+          <div class="a-head"><div><span class="label">Assigned to you</span><h1>GitLab work</h1></div><button class="btn small" type="button" data-preview-action="Filters are a preview interaction.">Filter</button></div>
+          <div class="tabs" role="tablist" aria-label="Work type"><button class="tab" type="button" role="tab" data-work-type="issue" aria-selected="${activeWorkType === "issue"}">Issues <span class="count">2</span></button><button class="tab" type="button" role="tab" data-work-type="merge request" aria-selected="${activeWorkType === "merge request"}">Merge requests <span class="count">2</span></button></div>
+          <div class="a-queue"><div class="queue-head"><strong>Updated</strong><span class="muted">${visibleItems.length} items</span></div>${rows}</div>
+        </section>`;
+      };
+
+      const renderVariantB = () => `
+        <section class="variant-b">
+          ${repoStrip()}
+          <header class="b-intro"><h1>Continue the checkout recovery work.</h1><p>Your active issue, its merge request, and the next review queue in one session brief.</p></header>
+          <article class="b-active">
+            <div class="b-active-top">${badgeFor(workItems[0])}<span class="mono">#184</span><span class="muted">Maya Chen</span></div>
+            <h2>Recover checkout after payment timeout</h2>
+            <div class="branch">feature/checkout-recovery → main</div>
+            <div class="b-progress" aria-label="Work progress"><div class="step done">Issue scoped</div><div class="step current">Code in progress</div><div class="step">Review</div></div>
+            <div class="b-actions"><button class="btn primary" type="button" data-preview-action="Preview only: #184 would be added as session context.">${icon("context")}Use issue context</button><button class="btn ghost" type="button" data-preview-action="Preview only: this would open #184 in GitLab.">${icon("external")}View</button></div>
+          </article>
+          <section class="b-section"><div class="b-section-head"><h2>Connected merge request</h2><span class="badge review">2 approvals needed</span></div><div class="b-queue"><button class="row-button b-row" type="button" data-preview-action="Preview only: !72 detail would open."><span class="b-row-id">!72</span><span><strong>Retry payment status on reconnect</strong><small>Pipeline passed · updated 38m ago</small></span><span class="avatar">JB</span></button></div></section>
+          <section class="b-section"><div class="b-section-head"><h2>Next in your queue</h2><span class="muted">3 items</span></div><div class="b-queue">${workItems.slice(1).map((item) => `<button class="row-button b-row" type="button" data-preview-action="Preview only: ${item.id} detail would open."><span class="b-row-id">${item.id}</span><span><strong>${item.title}</strong><small>${item.kind} · ${item.age}</small></span>${badgeFor(item)}</button>`).join("")}</div></section>
+        </section>`;
+
+      const renderVariantC = () => {
+        const issues = workItems.filter((item) => item.kind === "issue");
+        const merges = workItems.filter((item) => item.kind === "merge request");
+        const lane = (title, items) => `<section class="lane"><header class="lane-head"><strong>${title}</strong><span class="count">${items.length}</span></header>${items.map((item) => `<button class="row-button lane-item" type="button" data-item="${item.id}"><strong>${item.title}</strong><footer><span class="mono">${item.id}</span><span>${item.age}</span></footer></button>`).join("")}</section>`;
+
+        return `<section class="variant-c">
+          ${repoStrip()}
+          <header class="c-head"><div><h1>Project pulse</h1><p>Open work around your current branch</p></div><button class="btn small" type="button" data-preview-action="Preview only: project work would refresh.">Refresh</button></header>
+          <div class="lanes">${lane("Issues", issues)}${lane("Merge requests", merges)}</div>
+          <article class="c-focus"><div class="c-focus-head"><div><span class="label">Branch focus · #184</span><h2>Recover checkout after payment timeout</h2></div>${badgeFor(workItems[0])}</div>
+            <div class="c-stats"><div class="c-stat"><strong>2</strong><span>linked MRs</span></div><div class="c-stat"><strong>1</strong><span>review due</span></div><div class="c-stat"><strong>✓</strong><span>pipeline</span></div></div>
+            <div class="c-links"><button class="c-link" type="button" data-preview-action="Preview only: #184 would be added as session context.">${icon("context")}<span>Add issue to session context</span><span>→</span></button><button class="c-link" type="button" data-preview-action="Preview only: !72 would open in GitLab.">${icon("merge")}<span>Review merge request !72</span><span>→</span></button></div>
+          </article>
+        </section>`;
+      };
+
+      const renderUnassociated = () => `
+        <section class="state-view">
+          <span class="label">Local repository · atlas-web</span>
+          <h1>Choose its GitLab project.</h1>
+          <p>This association becomes the default source for issues and merge requests in this repository and its registered worktrees.</p>
+          <input class="project-search" type="search" placeholder="Search visible GitLab projects…" aria-label="Search visible GitLab projects" />
+          <div class="project-options" aria-label="Fictional GitLab project results">
+            <button class="project-option" type="button" data-associate="northstar / atlas-web"><strong>northstar / atlas-web</strong><span>gitlab.example.test · updated 12 minutes ago</span></button>
+            <button class="project-option" type="button" data-associate="northstar / atlas-api"><strong>northstar / atlas-api</strong><span>gitlab.example.test · updated yesterday</span></button>
+            <button class="project-option" type="button" data-associate="sandbox / atlas-demo"><strong>sandbox / atlas-demo</strong><span>gitlab.example.test · updated 8 days ago</span></button>
+          </div>
+          <div class="association-preview"><div class="repo-logo">${icon("branch")}</div><div class="repo-copy"><span>GitLab project association</span><strong>Not available</strong></div></div>
+        </section>`;
+
+      const renderDisconnected = () => `
+        <section class="state-view">
+          <span class="label">GitLab workspace</span>
+          <h1>Connect GitLab to see project work.</h1>
+          <p>OpenChamber keeps the token in protected integration storage. This extension does not read or store it.</p>
+          <div class="prereq"><strong>Connection required</strong><p>Go to Settings → Integrations, connect the configured GitLab account, then return here.</p><button class="btn primary" type="button" data-preview-action="Preview only: this would open OpenChamber Settings → Integrations.">Open integration settings</button></div>
+          <div class="association-preview"><div class="repo-logo">${icon("branch")}</div><div class="repo-copy"><span>GitLab project association</span><strong>Not available</strong></div></div>
+        </section>`;
+
+      const getVariant = () => {
+        const value = new URLSearchParams(window.location.search).get("variant")?.toUpperCase();
+        return variants[value] ? value : "A";
+      };
+
+      const showToast = (message) => {
+        clearTimeout(toastTimer);
+        toast.textContent = message;
+        toast.classList.add("show");
+        toastTimer = window.setTimeout(() => toast.classList.remove("show"), 2400);
+      };
+
+      const bindInteractions = () => {
+        // Keep all simulated actions honest by returning preview-only feedback.
+        surface.querySelectorAll("[data-preview-action]").forEach((button) => button.addEventListener("click", () => showToast(button.dataset.previewAction)));
+
+        // Replace the inbox with the selected item's full-width detail.
+        surface.querySelectorAll("[data-item]").forEach((button) => button.addEventListener("click", () => { selectedId = button.dataset.item; render(); }));
+
+        // Return from item detail to the current project list.
+        surface.querySelectorAll("[data-back-to-list]").forEach((button) => button.addEventListener("click", () => {
+          selectedId = null;
+          render();
+        }));
+
+        // Complete the sample association and return to daily work.
+        surface.querySelectorAll("[data-associate]").forEach((button) => button.addEventListener("click", () => { currentState = "connected"; syncStateControl(); showToast(`Preview only: associated ${button.dataset.associate}.`); render(); }));
+
+        // Switch between the two explicit inbox types without opening an item automatically.
+        surface.querySelectorAll("[data-work-type]").forEach((tab) => tab.addEventListener("click", () => {
+          activeWorkType = tab.dataset.workType;
+          selectedId = null;
+          render();
+        }));
+
+        // Change only the visible merge request detail section.
+        surface.querySelectorAll("[data-mr-tab]").forEach((button) => button.addEventListener("click", () => {
+          mrDetailTab = button.dataset.mrTab;
+          render();
+        }));
+      };
+
+      const render = () => {
+        const variant = getVariant();
+        variantLabel.textContent = `${variant} · ${variants[variant].name}`;
+        variantSwitcher.hidden = variant === "A";
+        labSessionMode.value = sessionMode;
+
+        if (currentState === "disconnected") surface.innerHTML = renderDisconnected();
+        else if (currentState === "unassociated") surface.innerHTML = renderUnassociated();
+        else surface.innerHTML = variant === "A" ? renderVariantA() : variant === "B" ? renderVariantB() : renderVariantC();
+
+        bindInteractions();
+      };
+
+      const syncStateControl = () => {
+        labPreviewState.value = currentState;
+      };
+
+      const cycleVariant = (direction) => {
+        const keys = Object.keys(variants);
+        const currentIndex = keys.indexOf(getVariant());
+        const nextIndex = (currentIndex + direction + keys.length) % keys.length;
+        const url = new URL(window.location.href);
+        url.searchParams.set("variant", keys[nextIndex]);
+        window.history.replaceState({}, "", url);
+        render();
+      };
+
+      labPreviewState.addEventListener("change", () => {
+        // Preview either daily work or the correct setup guidance for connection state.
+        currentState = labPreviewState.value;
+        render();
+      });
+
+      document.querySelectorAll(".host [data-preview-action]").forEach((button) => button.addEventListener("click", () => showToast(button.dataset.previewAction)));
+      labSessionMode.addEventListener("change", () => {
+        // Keep the lab simulation reload-stable and clearly separate from product state.
+        sessionMode = labSessionMode.value;
+        selectedId = null;
+        const url = new URL(window.location.href);
+        if (sessionMode === "none") url.searchParams.delete("session");
+        else url.searchParams.set("session", sessionMode);
+        window.history.replaceState({}, "", url);
+        render();
+      });
+      document.querySelector("#previous").addEventListener("click", () => cycleVariant(-1));
+      document.querySelector("#next").addEventListener("click", () => cycleVariant(1));
+      window.addEventListener("popstate", render);
+      window.addEventListener("keydown", (event) => {
+        const target = event.target;
+        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable) return;
+        if (getVariant() === "A") return;
+        if (event.key === "ArrowLeft") cycleVariant(-1);
+        if (event.key === "ArrowRight") cycleVariant(1);
+      });
+
+      syncStateControl();
+      render();
+    })();
+  </script>
+</body>
+</html>

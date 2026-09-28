@@ -1,3 +1,10 @@
 /node_modules/
 /coverage/
 .DS_Store
+.slim/deepwork/
+/openchamber-extension-gitlab.zip
+/.cortexkit/
+/.impeccable/qa/
+/.impeccable/critique/
+/.gitlab-*-qa.*/
+/.gitlab-*-deploy-candidate.*/

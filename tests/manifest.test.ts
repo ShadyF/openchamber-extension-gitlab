@@ -33,7 +33,8 @@ describe('OpenChamber package manifest', () => {
     expect(packageJson.openchamber.contributes.panel.entry).toBe('panel/index.html');
     expect(packageJson.openchamber.contributes.capabilities).toEqual(['sessions']);
     expect(packageJson.openchamber.contributes.integration.name).toBe('Self-Managed GitLab');
-    expect(packageJson.openchamber.contributes.integration.description).toContain('self-managed GitLab instance');
+    expect(packageJson.openchamber.contributes.integration.description).toContain('self-managed GitLab');
+    expect(packageJson.openchamber.contributes.integration.description).toContain('issues');
     const { apiOrigin, ...token } = packageJson.openchamber.contributes.integration.token;
     expect(isSafeBareHttpsOrigin(apiOrigin)).toBe(true);
     expect(token).toEqual({

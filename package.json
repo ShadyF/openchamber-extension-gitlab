@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Associate OpenChamber local repositories with GitLab projects.",
+  "description": "Browse GitLab issues and merge requests for associated repositories and open issue-linked worktree sessions.",
   "scripts": {
     "build": "bunx openchamber-guest-bundle src/main.ts panel/main.js && bun run validate",
     "typecheck": "tsc --noEmit",
@@ -29,7 +29,7 @@
       "capabilities": ["sessions"],
       "integration": {
         "name": "Self-Managed GitLab",
-        "description": "Search visible projects on a self-managed GitLab instance and associate them with OpenChamber repositories.",
+        "description": "Connect a self-managed GitLab account to browse project issues and merge requests in OpenChamber.",
         "token": {
           "apiOrigin": "https://gitlab.invalid",
           "scheme": "bearer",
